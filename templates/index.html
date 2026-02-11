@@ -1,71 +1,413 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>YouTube to MP3 (320 kbps)</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background: #111;
-            color: #eee;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            margin: 0;
-        }
-        .container {
-            background: #1e1e1e;
-            padding: 20px 30px;
-            border-radius: 8px;
-            box-shadow: 0 0 15px rgba(0,0,0,0.5);
-            text-align: center;
-            width: 400px;
-            max-width: 90%;
-        }
-        h1 {
-            margin-top: 0;
-            font-size: 22px;
-        }
-        input[type="text"] {
-            width: 100%;
-            padding: 8px 10px;
-            margin: 10px 0;
-            border-radius: 4px;
-            border: 1px solid #444;
-            background: #000;
-            color: #eee;
-        }
-        button {
-            padding: 8px 16px;
-            border-radius: 4px;
-            border: none;
-            background: #ff4757;
-            color: #fff;
-            cursor: pointer;
-            font-weight: bold;
-        }
-        button:hover {
-            background: #ff6b81;
-        }
-        p.note {
-            font-size: 12px;
-            color: #aaa;
-            margin-top: 10px;
-        }
-    </style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>YouTube To MP3</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <style>
+    :root{
+      --accent:#9d4edd;
+      --accent2:#6b6bff;
+      --muted:rgba(179,164,217,0.9);
+      --card:rgba(15,5,40,0.78);
+    }
+    html,body{height:100%;margin:0;background:radial-gradient(circle at center,#150233 0%,#0C021D 70%,#070014 100%);color:#eee;font-family:Inter,Arial}
+    .page-wrapper{max-width:1100px;margin:12px auto;padding:12px;transform-origin:top center}
+    .header{text-align:center;margin-bottom:8px}
+    .logo-glow{width:120px;filter:drop-shadow(0 0 20px rgba(157,78,221,0.45));transition:transform 0.25s, filter 0.25s}
+    /* Pulse glow */
+    @keyframes pulseGlow {
+      0% { transform: scale(1); filter: drop-shadow(0 0 20px rgba(157,78,221,0.45)); }
+      50% { transform: scale(1.03); filter: drop-shadow(0 0 34px rgba(199,125,255,0.7)); }
+      100% { transform: scale(1); filter: drop-shadow(0 0 20px rgba(157,78,221,0.45)); }
+    }
+    .pulse { animation: pulseGlow 3.6s ease-in-out infinite; }
+
+    /* Rotation animation for processing */
+    @keyframes rotateLogo {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    .logo-rotate { animation: rotateLogo 1.2s linear infinite !important; }
+
+    h1{color:#c77dff;margin:6px 0 2px;font-size:20px;font-weight:700}
+    .subtitle{color:var(--muted);font-size:13px}
+    .divider{width:72px;height:3px;background:var(--accent);margin:8px auto 14px;border-radius:3px}
+    .main-grid{display:grid;grid-template-columns:1.35fr 1fr;gap:14px}
+    @media(max-width:900px){.main-grid{grid-template-columns:1fr}}
+    .glass-panel{background:var(--card);border-radius:12px;border:1px solid rgba(255,255,255,0.06);padding:10px;box-shadow:0 18px 45px rgba(0,0,0,0.45)}
+    .panel-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+    .panel-title{font-size:12px;text-transform:uppercase;color:#b89cff;font-weight:700}
+    .panel-badge{font-size:10px;padding:3px 6px;border-radius:999px;background:rgba(157,78,221,0.14);color:#e0c8ff}
+    .form-control,.form-select{background:#0C021D;color:#eee;border:1px solid #3a3a45}
+    .btn-fancy{background:var(--accent);color:#fff;font-weight:700;border-radius:8px;border:none;padding:8px 12px}
+    .btn-fancy.secondary{background:var(--accent2)}
+    .input-row{display:flex;gap:8px;align-items:center}
+    .preview-thumb{width:100%;height:140px;object-fit:cover;border-radius:8px;background:#111}
+    .progress{height:8px;background:rgba(255,255,255,0.06);border-radius:6px;overflow:hidden}
+    .progress-bar{background:linear-gradient(90deg,#9d4edd,#f72585);width:0%;height:100%;transition:width 0.18s linear}
+    #popup{position:fixed;bottom:18px;right:18px;background:#480BB0;color:#fff;padding:10px 14px;border-radius:8px;display:none;z-index:9999;font-weight:700}
+    #clipboard-fallback-modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);z-index:9998}
+    #clipboard-fallback-modal .panel{background:#fff;color:#111;padding:12px;border-radius:10px;width:min(92%,560px)}
+    html,body{overflow:hidden}
+    #qrBox img{max-width:100%;height:auto;border-radius:6px;display:block}
+    .hidden{display:none !important}
+  </style>
 </head>
 <body>
-<div class="container">
-    <h1>YouTube → MP3 (320 kbps)</h1>
-    <form action="/download" method="POST">
-        <input type="text" name="url" placeholder="Paste YouTube URL here">
-        <button type="submit">Download MP3</button>
-    </form>
-    <p class="note">
-        Personal use only. Use with content you have rights to download.
-    </p>
-</div>
+  <div class="page-wrapper" id="pageWrapper">
+    <div class="header">
+      <img id="mainLogo" src="/static/djlogo.png" alt="logo" class="logo-glow pulse" />
+      <h1>YouTube To MP3</h1>
+      <div class="subtitle">Ultimate downloader • Audio & Video • Playlists</div>
+      <div class="divider"></div>
+    </div>
+
+    <div class="main-grid">
+      <div>
+        <div class="glass-panel">
+          <div class="panel-header"><div class="panel-title">Source</div><div class="panel-badge">Paste YouTube link</div></div>
+          <form id="downloadForm" action="/download" method="POST">
+            <div class="mb-2"><input id="urlInput" name="url" class="form-control" type="text" placeholder="Paste YouTube URL here" autocomplete="off" /></div>
+            <div class="input-row mb-2">
+              <button type="button" id="pasteBtn" class="btn btn-fancy">Paste from Clipboard</button>
+              <button type="button" id="previewBtn" class="btn btn-fancy secondary">Preview Video</button>
+            </div>
+
+            <div class="glass-panel mb-2" style="background: rgba(18,6,55,0.9);">
+              <div class="panel-header"><div class="panel-title">Format & Quality</div><div class="panel-badge">Smart options</div></div>
+              <div class="row g-2">
+                <div class="col-6">
+                  <label class="form-label mb-1" style="font-size:12px;">Format</label>
+                  <select id="formatSelect" name="format" class="form-select form-select-sm">
+                    <option value="mp3" selected>MP3 (Audio)</option>
+                    <option value="mp4">MP4 (Video)</option>
+                  </select>
+                </div>
+                <div class="col-6" id="qualityWrapper">
+                  <label class="form-label mb-1" style="font-size:12px;">Quality</label>
+                  <select id="qualitySelect" name="quality" class="form-select form-select-sm">
+                    <option data-for="mp3" value="128">128 kbps</option>
+                    <option data-for="mp3" value="192">192 kbps</option>
+                    <option data-for="mp3" value="320" selected>320 kbps</option>
+                    <option data-for="mp4" value="1080" class="hidden">1080p</option>
+                    <option data-for="mp4" value="720" class="hidden">720p</option>
+                    <option data-for="mp4" value="480" class="hidden">480p</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div id="audioAdvanced" class="glass-panel mb-2" style="background: rgba(18,6,55,0.9);">
+              <div class="panel-header"><div class="panel-title">Advanced Audio Tools</div><div class="panel-badge">For MP3 only</div></div>
+              <div class="d-flex justify-content-between align-items-center mb-2"><div>Normalize audio<br><small style="color:var(--muted)">Even out volume</small></div><div><input type="checkbox" name="normalize"></div></div>
+              <div class="d-flex justify-content-between align-items-center mb-2"><div>Trim silence<br><small style="color:var(--muted)">Remove silence</small></div><div><input type="checkbox" name="trim"></div></div>
+              <div class="d-flex justify-content-between align-items-center"><div>Add metadata<br><small style="color:var(--muted)">Embed title & thumbnail</small></div><div><input type="checkbox" name="metadata" checked></div></div>
+            </div>
+
+            <div id="playlistPanel" class="glass-panel mb-2" style="display:none; background: rgba(10,40,25,0.9);">
+              <div class="panel-header"><div class="panel-title">Playlist Detected</div><div class="panel-badge">Multiple videos</div></div>
+              <div id="playlistInfo" style="font-size:13px; color:#cdebdc;">This appears to be a playlist. All items will be downloaded and packaged.</div>
+            </div>
+
+            <div class="glass-panel">
+              <div class="panel-header"><div class="panel-title">Download</div><div class="panel-badge">One job at a time</div></div>
+              <div class="mb-2"><button type="submit" id="downloadBtn" class="btn btn-fancy w-100">Download</button></div>
+              <div>
+                <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+                  <div id="progressBar" class="progress-bar"></div>
+                </div>
+                <div id="progressText" style="font-size:11px;color:var(--muted);margin-top:6px;">Waiting to start…</div>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div>
+        <div class="glass-panel">
+          <div class="panel-header"><div class="panel-title">Preview</div><div class="panel-badge">Auto from YouTube</div></div>
+          <div id="previewEmpty" style="font-size:13px;color:var(--muted);">Paste a YouTube link and click <strong>Preview Video</strong>.</div>
+          <div id="previewContent" style="display:none;">
+            <img id="previewThumb" class="preview-thumb" src="" alt="Thumbnail">
+            <div class="preview-title" id="previewTitle"></div>
+            <div class="preview-meta" id="previewMeta"></div>
+            <div id="previewPlaylistBadge" class="badge-playlist" style="display:none;">Playlist detected</div>
+          </div>
+        </div>
+
+        <div class="glass-panel mt-2">
+          <div class="panel-header"><div class="panel-title">Extras</div><div class="panel-badge">Coming online</div></div>
+          <div style="font-size:13px;color:var(--muted);">QR and recent downloads will appear here once the backend returns share info.<div id="qrBox" style="margin-top:8px;">QR will appear here</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="popup">Download Complete</div>
+
+  <div id="clipboard-fallback-modal" aria-hidden="true">
+    <div class="panel">
+      <div id="cfmMsg" style="margin-bottom:8px;font-weight:700">Paste link</div>
+      <textarea id="cfmText" rows="3" placeholder="Paste the YouTube link here"></textarea>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px">
+        <button id="cfmCancel" class="btn btn-outline-secondary">Cancel</button>
+        <button id="cfmOk" class="btn btn-fancy">Use link</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* Elements */
+    const urlInput = document.getElementById('urlInput');
+    const pasteBtn = document.getElementById('pasteBtn');
+    const previewBtn = document.getElementById('previewBtn');
+    const formatSelect = document.getElementById('formatSelect');
+    const qualitySelect = document.getElementById('qualitySelect');
+    const audioAdvanced = document.getElementById('audioAdvanced');
+    const playlistPanel = document.getElementById('playlistPanel');
+    const playlistInfo = document.getElementById('playlistInfo');
+    const previewEmpty = document.getElementById('previewEmpty');
+    const previewContent = document.getElementById('previewContent');
+    const previewThumb = document.getElementById('previewThumb');
+    const previewTitle = document.getElementById('previewTitle');
+    const previewMeta = document.getElementById('previewMeta');
+    const previewPlaylistBadge = document.getElementById('previewPlaylistBadge');
+    const downloadForm = document.getElementById('downloadForm');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progressText');
+    const popup = document.getElementById('popup');
+    const qrBox = document.getElementById('qrBox');
+    const clipboardModal = document.getElementById('clipboard-fallback-modal');
+    const cfmText = document.getElementById('cfmText');
+    const cfmMsg = document.getElementById('cfmMsg');
+    const cfmCancel = document.getElementById('cfmCancel');
+    const cfmOk = document.getElementById('cfmOk');
+    const mainLogo = document.getElementById('mainLogo');
+
+    /* UI helpers */
+    function showPopup(msg, t=2500){ popup.textContent = msg; popup.style.display='block'; setTimeout(()=>popup.style.display='none', t); }
+
+    function setProcessing(on){
+      if(!mainLogo) return;
+      if(on){
+        // stop pulse and start rotation
+        mainLogo.classList.remove('pulse');
+        mainLogo.classList.add('logo-rotate');
+      } else {
+        // stop rotation and restore pulse after a short delay
+        mainLogo.classList.remove('logo-rotate');
+        setTimeout(()=> mainLogo.classList.add('pulse'), 220);
+      }
+    }
+
+    /* Clipboard fallback */
+    pasteBtn.addEventListener('click', async () => {
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          const text = await navigator.clipboard.readText();
+          if (text && text.trim()) { urlInput.value = text.trim(); showPopup('Pasted from clipboard'); return; }
+        }
+      } catch(e){}
+      cfmMsg.textContent = 'Your browser blocked direct clipboard access. Please paste the link below.';
+      cfmText.value = '';
+      clipboardModal.style.display = 'flex';
+      cfmText.focus();
+    });
+    cfmCancel.addEventListener('click', ()=> clipboardModal.style.display='none');
+    cfmOk.addEventListener('click', ()=> { const v = cfmText.value.trim(); if(v){ urlInput.value = v; showPopup('Link pasted'); } clipboardModal.style.display='none'; });
+
+    /* Format/quality */
+    function updateQualityOptions(){
+      const fmt = formatSelect.value;
+      Array.from(qualitySelect.options).forEach(opt => {
+        const forAttr = opt.getAttribute('data-for');
+        if(!forAttr) opt.classList.remove('hidden');
+        else if(forAttr === fmt) opt.classList.remove('hidden');
+        else opt.classList.add('hidden');
+      });
+      audioAdvanced.style.display = (fmt === 'mp3') ? 'block' : 'none';
+    }
+    formatSelect.addEventListener('change', updateQualityOptions);
+    updateQualityOptions();
+
+    /* Preview */
+    async function fetchInfo(){
+      const url = urlInput.value.trim();
+      if(!url){ alert('Please paste a YouTube URL first.'); return; }
+      previewEmpty.style.display='block'; previewContent.style.display='none'; previewEmpty.textContent='Loading preview…';
+      try {
+        const fd = new FormData(); fd.append('url', url);
+        const res = await fetch('/info', { method:'POST', body: fd });
+        if(!res.ok){ const txt = await res.text().catch(()=>null); previewEmpty.textContent = 'Could not load preview: ' + (txt || res.statusText); playlistPanel.style.display='none'; return; }
+        const data = await res.json();
+        if(data.error){ previewEmpty.textContent = 'Could not load preview: ' + data.error; playlistPanel.style.display='none'; return; }
+        previewEmpty.style.display='none'; previewContent.style.display='block';
+        previewTitle.textContent = data.title || 'Unknown title';
+        previewMeta.textContent = data.duration ? `Duration: ${Math.floor(data.duration/60)}m ${data.duration%60}s` : '';
+        previewThumb.src = data.thumbnail || '';
+        if(data.is_playlist){ previewPlaylistBadge.style.display='inline-block'; playlistPanel.style.display='block'; playlistInfo.textContent = `Playlist detected: ${data.title || 'Playlist'}`; } else { previewPlaylistBadge.style.display='none'; playlistPanel.style.display='none'; }
+      } catch(e){ previewEmpty.textContent = 'Preview failed: ' + (e.message || e); previewContent.style.display='none'; playlistPanel.style.display='none'; }
+    }
+    previewBtn.addEventListener('click', fetchInfo);
+    urlInput.addEventListener('keydown', (e)=> { if(e.key === 'Enter'){ e.preventDefault(); fetchInfo(); } });
+
+    /* Progress logic: combined simulated ramp + real streaming */
+    let fakeTimer = null;
+    let fakePct = 0;
+    function startFakeRamp() {
+      stopFakeRamp();
+      fakePct = 0;
+      progressBar.style.width = '0%';
+      fakeTimer = setInterval(() => {
+        // faster early, slower near 85-90
+        const step = fakePct < 60 ? (Math.random() * 3 + 2) : (Math.random() * 1.2 + 0.3);
+        fakePct = Math.min(90, fakePct + step);
+        progressBar.style.width = Math.round(fakePct) + '%';
+        progressText.textContent = `Downloading… ${Math.round(fakePct)}%`;
+      }, 160);
+    }
+    function stopFakeRamp() { if (fakeTimer) { clearInterval(fakeTimer); fakeTimer = null; } }
+    function setProgressPct(pct) {
+      // clamp and animate
+      const clamped = Math.max(0, Math.min(100, Math.round(pct)));
+      progressBar.style.width = clamped + '%';
+      progressText.textContent = clamped < 100 ? `Downloading… ${clamped}%` : 'Download complete';
+    }
+    function finishProgress() {
+      stopFakeRamp();
+      // smooth final step
+      setProgressPct(100);
+    }
+
+    /* Download handler */
+    downloadForm.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const url = urlInput.value.trim();
+      if(!url){ alert('Please paste a YouTube URL first.'); return; }
+
+      const form = new FormData(downloadForm);
+      form.append('return_json','1');
+
+      downloadBtn.disabled = true;
+      downloadBtn.textContent = 'Starting…';
+      progressBar.style.width = '0%';
+      progressText.textContent = 'Starting download…';
+      setProcessing(true);
+      startFakeRamp();
+
+      try {
+        const res = await fetch('/download', { method:'POST', body: form });
+        if(!res.ok){ const txt = await res.text().catch(()=>null); throw new Error(txt || res.statusText); }
+        const data = await res.json();
+        const jobId = data.job_id;
+        if(!jobId) throw new Error('No job id returned');
+
+        async function pollShare(id, timeoutMs=5*60*1000, intervalMs=2000){
+          const start = Date.now();
+          while(Date.now() - start < timeoutMs){
+            try {
+              const r = await fetch(`/share/${id}`);
+              if(r.ok){
+                const j = await r.json();
+                if(j.download_url || j.dl_url) return j;
+                if(j.status === 'error') throw new Error(j.error || 'Server error');
+              }
+            } catch(e){}
+            await new Promise(r=>setTimeout(r, intervalMs));
+          }
+          throw new Error('Timeout waiting for server to finish processing.');
+        }
+
+        progressText.textContent = 'Processing… this can take a while';
+        const share = await pollShare(jobId);
+        const finalUrl = share.dl_url || share.download_url;
+        if(!finalUrl) throw new Error('No download URL available');
+        if(share.qr_url) qrBox.innerHTML = `<img src="${share.qr_url}" alt="QR">`;
+
+        // Mobile: let browser handle download (attachment header should prompt save)
+        if(/Mobi|Android|iPhone/i.test(navigator.userAgent)){
+          progressText.textContent = 'Opening download in browser…';
+          window.location.href = finalUrl;
+          showPopup('Opening download in browser…', 2500);
+          stopFakeRamp();
+          setProcessing(false);
+          downloadBtn.disabled = false;
+          downloadBtn.textContent = 'Download';
+          return;
+        }
+
+        // Desktop: attempt streaming with real progress
+        progressText.textContent = 'Downloading…';
+        const fileRes = await fetch(finalUrl);
+        if(!fileRes.ok) throw new Error('Failed to fetch file: ' + fileRes.statusText);
+
+        const contentLength = fileRes.headers.get('Content-Length');
+        if(!contentLength){
+          // no length header: rely on fake ramp until blob completes
+          const blob = await fileRes.blob();
+          finishProgress();
+          const a = document.createElement('a');
+          const urlBlob = URL.createObjectURL(blob);
+          a.href = urlBlob; a.download = (share.filename || 'download'); document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(urlBlob);
+          showPopup('Download started');
+          return;
+        }
+
+        // Real streaming progress
+        const total = parseInt(contentLength, 10);
+        const reader = fileRes.body.getReader();
+        let received = 0;
+        const chunks = [];
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunkLen = (value && (value.byteLength || value.length)) || 0;
+          chunks.push(value);
+          received += chunkLen;
+          const pct = Math.round((received / total) * 100);
+          // ensure fake ramp doesn't exceed real progress
+          if (fakePct < pct) fakePct = pct;
+          // update UI smoothly
+          requestAnimationFrame(() => setProgressPct(pct));
+        }
+
+        const blob = new Blob(chunks);
+        const a = document.createElement('a');
+        const urlBlob = URL.createObjectURL(blob);
+        a.href = urlBlob; a.download = (share.filename || 'download'); document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(urlBlob);
+
+        finishProgress();
+        showPopup('Download started');
+      } catch (err) {
+        alert('Download error: ' + (err.message || err));
+        progressText.textContent = 'Error: ' + (err.message || 'unknown');
+      } finally {
+        stopFakeRamp();
+        downloadBtn.disabled = false;
+        downloadBtn.textContent = 'Download';
+        setProcessing(false);
+      }
+    });
+
+    /* Fit to viewport (no scrolling) */
+    function fitToViewport(){
+      const wrapper = document.getElementById('pageWrapper');
+      if(!wrapper) return;
+      wrapper.style.transform = 'none';
+      const vw = window.innerWidth, vh = window.innerHeight;
+      const rect = wrapper.getBoundingClientRect();
+      const scaleW = (vw * 0.98) / rect.width;
+      const scaleH = (vh * 0.98) / rect.height;
+      const scale = Math.min(1, scaleW, scaleH);
+      wrapper.style.transform = `scale(${scale})`;
+      document.body.style.overflow = 'hidden';
+    }
+    window.addEventListener('load', fitToViewport);
+    window.addEventListener('resize', ()=> setTimeout(fitToViewport, 120));
+    window.addEventListener('orientationchange', ()=> setTimeout(fitToViewport, 200));
+  </script>
 </body>
 </html>
